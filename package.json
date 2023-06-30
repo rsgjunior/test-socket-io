@@ -6,12 +6,17 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch ./src/app.js",
-    "start": "node ./src/app.js"
+    "start": "node ./src/app.js",
+    "lint:check": "prettier --check .",
+    "lint:fix": "prettier --write ."
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "prettier": "^2.8.8"
   }
 }

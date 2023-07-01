@@ -54,6 +54,12 @@ io.on("connection", (socket) => {
 
     io.emit("chat message", msgObj);
   });
+
+  socket.on("user typing", (data) => {
+    logger.log(`user ${socket.handshake.query.username} typing`);
+
+    socket.broadcast.emit("user typing", socket.handshake.query.username);
+  });
 });
 
 server.listen(port, () => {

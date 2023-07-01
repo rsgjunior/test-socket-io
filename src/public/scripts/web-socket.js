@@ -128,6 +128,8 @@ function insertUsernameInTypingUsers(usernameToInsert) {
   }
 
   typingUsers.push(usernameToInsert);
+
+  updateTypingUsersOnDom();
 }
 
 function removeUsernameOfTypingUsers(usernameToRemove) {}

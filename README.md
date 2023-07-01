@@ -16,6 +16,12 @@ Entre no diretório do projeto
   cd test-socket-io
 ```
 
+Instale a versão do NodeJS recomendada usando o [nvm](https://github.com/nvm-sh/nvm)
+
+```bash
+  nvm install
+```
+
 Instale as dependências
 
 ```bash

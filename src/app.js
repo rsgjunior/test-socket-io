@@ -23,7 +23,7 @@ const io = new SocketIoServer(server);
 app.use("/web", express.static(path.join(__dirname, "public")));
 
 app.get("/", (req, res) => {
-  res.send("Hello World!");
+  res.redirect("/web");
 });
 
 io.on("connection", (socket) => {

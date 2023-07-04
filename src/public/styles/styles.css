@@ -1,19 +1,31 @@
 body {
   margin: 0;
-  padding-bottom: 3rem;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
     Arial, sans-serif;
 }
 
+#content {
+  display: grid;
+  height: 100%;
+  grid-template-columns: 0.85fr 0.15fr;
+  grid-template-rows: 92vh 8vh;
+  grid-template-areas:
+    "chat sidebar"
+    "msg msg";
+}
+
+#main {
+  display: flex;
+  grid-area: chat;
+  overflow-y: auto;
+}
+
 #footer {
-  background: rgba(0, 0, 0, 0.15);
-  padding: 0.25rem;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  grid-area: msg;
+  background: #b3b3b3;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
 }
 
 #form {
@@ -27,7 +39,7 @@ body {
   border: none;
   padding: 0 1rem;
   flex-grow: 1;
-  border-radius: 2rem;
+  border-radius: 3px;
   margin: 0.25rem;
 }
 
@@ -46,6 +58,7 @@ body {
 }
 
 #messages {
+  width: 100%;
   list-style-type: none;
   margin: 0;
   padding: 0;
@@ -57,4 +70,10 @@ body {
 
 #messages > li:nth-child(odd) {
   background: #efefef;
+}
+
+#sidebar {
+  background: #acacac;
+  grid-area: sidebar;
+  padding: 1rem;
 }

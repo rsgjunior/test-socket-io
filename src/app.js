@@ -9,10 +9,6 @@ const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 const logger = new Logger();
-
-console.log(`__filename: ${__filename}`);
-console.log(`__dirname: ${__dirname}`);
-
 const app = express();
 const port = 3000;
 
@@ -34,9 +30,17 @@ io.on("connection", (socket) => {
     timestamp: Date.now(),
   });
 
-  socket.on("disconnect", () => {
-    logger.log("a user disconnected");
+  io.fetchSockets().then((data) => {
+    socket.emit(
+      "all users online",
+      data.map((e) => e.handshake.query.username)
+    );
+  });
 
+  socket.on("disconnect", () => {
+    logger.log(`user ${socket.handshake.query.username} disconnected`);
+
+    io.emit("user stopped typing", socket.handshake.query.username);
     io.emit("user disconnected", {
       username: socket.handshake.query.username,
       timestamp: Date.now(),
@@ -59,6 +63,15 @@ io.on("connection", (socket) => {
     logger.log(`user ${socket.handshake.query.username} typing`);
 
     socket.broadcast.emit("user typing", socket.handshake.query.username);
+  });
+
+  socket.on("user stopped typing", (data) => {
+    logger.log(`user ${socket.handshake.query.username} stopped typing`);
+
+    socket.broadcast.emit(
+      "user stopped typing",
+      socket.handshake.query.username
+    );
   });
 });
 

@@ -8,13 +8,16 @@ const socket = io(window.location.host, {
   },
 });
 
+const main = document.getElementById("main");
 const messages = document.getElementById("messages");
 const form = document.getElementById("form");
 const input = document.getElementById("input");
+const usersOnlineUl = document.getElementById("usersOnline");
 const typingUsersSpan = document.querySelector("#typingUsers");
 
 const typingUsers = [];
-let intervalDigitacao;
+let onlineUsers = [];
+let intervalDigitacao = null;
 let digitando = false;
 const eventEmitter = new EventEmitter();
 
@@ -35,66 +38,89 @@ eventEmitter.on("user typing", (data) => {
   insertUsernameInTypingUsers(data);
 });
 
+eventEmitter.on("user stopped typing", (data) => {
+  if (data === username) {
+    clearInterval(intervalDigitacao);
+    intervalDigitacao = null;
+    digitando = false;
+    socket.emit("user stopped typing", username);
+    return;
+  }
+
+  removeUsernameOfTypingUsers(data);
+});
+
 // DOM event listeners
 form.addEventListener("submit", function (e) {
   e.preventDefault();
   if (input.value) {
     socket.emit("chat message", input.value);
+    eventEmitter.emit("user stopped typing", username);
     input.value = "";
   }
-});
-
-input.addEventListener("focus", function () {
-  console.log("input focus");
-
-  intervalDigitacao = setInterval(() => {
-    console.log("checando se esta digitando");
-
-    if (!digitando) {
-      console.log("usuario não está digitando");
-      return;
-    }
-
-    console.log("usuario esta digitando");
-    digitando = false;
-  }, 1500);
-});
-
-input.addEventListener("blur", function () {
-  console.log("input blur");
-
-  clearInterval(intervalDigitacao);
 });
 
 input.addEventListener("keypress", function (e) {
   console.log("keypress", e);
 
   eventEmitter.emit("user typing", username);
+
+  if (intervalDigitacao === null) {
+    intervalDigitacao = setInterval(() => {
+      console.log("checando se esta digitando");
+
+      if (!digitando) {
+        console.log("usuario não está digitando");
+        eventEmitter.emit("user stopped typing", username);
+        return;
+      }
+
+      console.log("usuario esta digitando");
+      digitando = false;
+    }, 1500);
+  }
 });
 
 // Socket event listeners
 socket.on("chat message", function (msgObj) {
-  const date = new Date(msgObj.timestamp).toLocaleString();
+  const date = formatDate(msgObj.timestamp);
 
   insertMessage(`[${date}] <b>${msgObj.username}</b>: ${msgObj.message}`);
 });
 
 socket.on("user connected", function (obj) {
-  const date = new Date(obj.timestamp).toLocaleString();
+  const date = formatDate(obj.timestamp);
   const usernameString = obj.username === username ? "Você" : obj.username;
 
   insertMessage(`[${date}] <b>${usernameString}</b> entrou no chat!`);
+
+  if (obj.username !== username) {
+    insertUserInOnlineList(obj.username);
+  }
 });
 
 socket.on("user disconnected", function (obj) {
-  const date = new Date(obj.timestamp).toLocaleString();
+  const date = formatDate(obj.timestamp);
   const usernameString = obj.username === username ? "Você" : obj.username;
 
   insertMessage(`[${date}] <b>${usernameString}</b> saiu do chat.`);
+
+  removeUserFromOnlineList(obj.username);
 });
 
 socket.on("user typing", function (usernameFromServer) {
   eventEmitter.emit("user typing", usernameFromServer);
+});
+
+socket.on("user stopped typing", function (usernameFromServer) {
+  console.log("user stopped typing", usernameFromServer);
+
+  eventEmitter.emit("user stopped typing", usernameFromServer);
+});
+
+socket.on("all users online", function (data) {
+  console.log("all users online", data);
+  updateAllUsersOnlineOnDom(data || []);
 });
 
 // Helper functions
@@ -102,7 +128,7 @@ function insertMessage(msg, prefix = "") {
   const item = document.createElement("li");
   item.innerHTML = `${prefix}${msg}`;
   messages.appendChild(item);
-  window.scrollTo(0, document.body.scrollHeight);
+  main.scrollTo(0, main.scrollHeight);
 }
 
 function updateTypingUsersOnDom() {
@@ -110,6 +136,7 @@ function updateTypingUsersOnDom() {
 
   if (!typingUsers.length) {
     typingUsersSpan.innerHTML = "";
+    return;
   }
 
   typingUsersSpan.innerHTML =
@@ -132,4 +159,58 @@ function insertUsernameInTypingUsers(usernameToInsert) {
   updateTypingUsersOnDom();
 }
 
-function removeUsernameOfTypingUsers(usernameToRemove) {}
+function removeUsernameOfTypingUsers(usernameToRemove) {
+  const userIndex = typingUsers.findIndex((u) => u === usernameToRemove);
+
+  if (userIndex === -1) {
+    return;
+  }
+
+  typingUsers.splice(userIndex, 1);
+
+  updateTypingUsersOnDom();
+}
+
+function formatDate(dateArg) {
+  return new Date(dateArg).toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
+
+function updateAllUsersOnlineOnDom(users) {
+  for (const user of users) {
+    insertUserInOnlineList(user);
+  }
+}
+
+function insertUserInOnlineList(usernameToInsert) {
+  if (onlineUsers.includes(usernameToInsert)) {
+    return;
+  }
+
+  onlineUsers.push(usernameToInsert);
+
+  const item = document.createElement("li");
+  item.id = `onlineList-${usernameToInsert}`;
+  item.innerText = usernameToInsert;
+
+  if (usernameToInsert === username) {
+    item.innerText += " (Você)";
+  }
+
+  usersOnlineUl.appendChild(item);
+}
+
+function removeUserFromOnlineList(usernameToRemove) {
+  const userIndex = onlineUsers.findIndex((u) => u === usernameToRemove);
+
+  if (userIndex === -1) {
+    return;
+  }
+
+  typingUsers.splice(userIndex, 1);
+
+  document.getElementById(`onlineList-${usernameToRemove}`)?.remove();
+}

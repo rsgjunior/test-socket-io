@@ -5,17 +5,26 @@
     <link rel="stylesheet" href="./styles/styles.css" />
   </head>
   <body>
-    <ul id="messages"></ul>
+    <div id="content">
+      <div id="main">
+        <ul id="messages"></ul>
+      </div>
 
-    <div id="footer">
-      <span id="typingUsers"></span>
-      <form id="form" action="">
-        <input
-          id="input"
-          autocomplete="off"
-          placeholder="Digite sua mensagem..."
-        /><button>Enviar</button>
-      </form>
+      <div id="sidebar">
+        <b>Usuários Online</b>
+        <ul id="usersOnline"></ul>
+      </div>
+
+      <div id="footer">
+        <span id="typingUsers"></span>
+        <form id="form" action="">
+          <input
+            id="input"
+            autocomplete="off"
+            placeholder="Digite sua mensagem..."
+          /><button>Enviar</button>
+        </form>
+      </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>

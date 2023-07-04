@@ -1,6 +1,9 @@
 console.log("web socket script loaded");
 
-const username = prompt("Insira seu nome de usuário");
+let username = null;
+while (!username?.length) {
+  username = prompt("Insira seu nome de usuário no chat:");
+}
 
 const socket = io(window.location.host, {
   query: {

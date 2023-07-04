@@ -65,12 +65,11 @@ form.addEventListener("submit", function (e) {
 
   ultimaMsgEnviada = input.value;
 
-  if (input.value.startsWith("/w ")) {
-    const splittedMsg = input.value.split(" ");
-    input.value = "/w ";
-    if (splittedMsg[1]) {
-      input.value += `${splittedMsg[1]} `;
-    }
+  // regex for "/w stringDeExemplo Uma frase de exemplo"
+  const regexMatch = input.value.match(/^(\/w\s\w+\s).+/);
+
+  if (regexMatch) {
+    input.value = regexMatch[1];
     return;
   }
 

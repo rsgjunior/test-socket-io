@@ -1,6 +1,6 @@
 # test-socket-io
 
-Aplicação de teste implementando Web Sockets utilizando a biblioteca socket.io
+Aplicação de teste implementando Web Sockets utilizando a biblioteca socket.io para construir um chat.
 
 ## Rodando localmente
 

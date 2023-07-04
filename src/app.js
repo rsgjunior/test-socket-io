@@ -63,9 +63,10 @@ io.on("connection", (socket) => {
     if (msg.startsWith("/w ")) {
       logger.log("NOTICE starts with /w");
 
-      const splitedMsg = msg.split(" ");
+      // regex for "/w stringDeExemplo Uma frase de exemplo"
+      const regex = /^\/w\s(\w+)\s(.+)/;
 
-      if (splitedMsg.length < 3) {
+      if (!regex.test(msg)) {
         msgObj.username = null;
         msgObj.type = "error";
         msgObj.message = "Comando inválido. Utilize: '/w Username Mensagem'";
@@ -73,8 +74,9 @@ io.on("connection", (socket) => {
         return;
       }
 
-      const usernameBeingWhispered = splitedMsg[1];
-      msgObj.destinatary = usernameBeingWhispered;
+      const regexMatch = msg.match(regex);
+      const usernameBeingWhispered = regexMatch[1];
+      const msgString = regexMatch[2];
 
       if (usernameBeingWhispered === socket.handshake.query.username) {
         msgObj.username = null;
@@ -92,15 +94,13 @@ io.on("connection", (socket) => {
       if (!socketBeingWhispered) {
         msgObj.username = null;
         msgObj.type = "error";
-        msgObj.message = `O usuário ${splitedMsg[1]} não está online :(`;
+        msgObj.message = `O usuário ${usernameBeingWhispered} não está online :(`;
         socket.emit("chat message", msgObj);
         return;
       }
 
-      splitedMsg.shift();
-      splitedMsg.shift();
-
-      msgObj.message = splitedMsg.join(" ");
+      msgObj.destinatary = usernameBeingWhispered;
+      msgObj.message = msgString;
       msgObj.type = "particular";
 
       socket.emit("chat message", msgObj);

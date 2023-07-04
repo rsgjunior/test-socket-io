@@ -47,14 +47,66 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("chat message", (msg) => {
-    logger.log(`received message: ${msg}`);
+  socket.on("chat message", async (msg) => {
+    logger.log(
+      `user ${socket.handshake.query.username} sent message: '${msg}'`
+    );
 
     const msgObj = {
       message: msg,
       username: socket.handshake.query.username,
       timestamp: Date.now(),
+      type: "geral",
     };
+
+    // whisper
+    if (msg.startsWith("/w ")) {
+      logger.log("NOTICE starts with /w");
+
+      const splitedMsg = msg.split(" ");
+
+      if (splitedMsg.length < 3) {
+        msgObj.username = null;
+        msgObj.type = "error";
+        msgObj.message = "Comando inválido. Utilize: '/w Username Mensagem'";
+        socket.emit("chat message", msgObj);
+        return;
+      }
+
+      const usernameBeingWhispered = splitedMsg[1];
+      msgObj.destinatary = usernameBeingWhispered;
+
+      if (usernameBeingWhispered === socket.handshake.query.username) {
+        msgObj.username = null;
+        msgObj.type = "error";
+        msgObj.message = "Para de falar sozinho seu maluco...";
+        socket.emit("chat message", msgObj);
+        return;
+      }
+
+      const allSockets = await io.fetchSockets();
+      const socketBeingWhispered = allSockets.find(
+        (s) => s.handshake.query.username === usernameBeingWhispered
+      );
+
+      if (!socketBeingWhispered) {
+        msgObj.username = null;
+        msgObj.type = "error";
+        msgObj.message = `O usuário ${splitedMsg[1]} não está online :(`;
+        socket.emit("chat message", msgObj);
+        return;
+      }
+
+      splitedMsg.shift();
+      splitedMsg.shift();
+
+      msgObj.message = splitedMsg.join(" ");
+      msgObj.type = "particular";
+
+      socket.emit("chat message", msgObj);
+      socketBeingWhispered.emit("chat message", msgObj);
+      return;
+    }
 
     io.emit("chat message", msgObj);
   });

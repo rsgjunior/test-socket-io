@@ -16,6 +16,7 @@ const usersOnlineUl = document.getElementById("usersOnline");
 const typingUsersSpan = document.querySelector("#typingUsers");
 
 const typingUsers = [];
+let ultimaMsgEnviada = null;
 let onlineUsers = [];
 let intervalDigitacao = null;
 let digitando = false;
@@ -53,10 +54,29 @@ eventEmitter.on("user stopped typing", (data) => {
 // DOM event listeners
 form.addEventListener("submit", function (e) {
   e.preventDefault();
-  if (input.value) {
-    socket.emit("chat message", input.value);
-    eventEmitter.emit("user stopped typing", username);
-    input.value = "";
+  if (!input.value) {
+    return;
+  }
+  socket.emit("chat message", input.value);
+  eventEmitter.emit("user stopped typing", username);
+
+  ultimaMsgEnviada = input.value;
+
+  if (input.value.startsWith("/w ")) {
+    const splittedMsg = input.value.split(" ");
+    input.value = "/w ";
+    if (splittedMsg[1]) {
+      input.value += `${splittedMsg[1]} `;
+    }
+    return;
+  }
+
+  input.value = "";
+});
+
+input.addEventListener("keydown", function (e) {
+  if (e.key === "ArrowUp" && ultimaMsgEnviada) {
+    input.value = ultimaMsgEnviada;
   }
 });
 
@@ -85,7 +105,21 @@ input.addEventListener("keypress", function (e) {
 socket.on("chat message", function (msgObj) {
   const date = formatDate(msgObj.timestamp);
 
-  insertMessage(`[${date}] <b>${msgObj.username}</b>: ${msgObj.message}`);
+  let msg = `[${date}] `;
+
+  if (msgObj.type === "particular") {
+    if (msgObj.destinatary === username) {
+      msg += `<b>${msgObj.username}</b> sussurrou para você: `;
+    } else {
+      msg += `Você sussurrou para <b>${msgObj.destinatary}</b>: `;
+    }
+  } else if (msgObj.type === "geral" && msgObj.username) {
+    msg += `<b>${msgObj.username}</b>: `;
+  }
+
+  msg += msgObj.message;
+
+  insertMessage(msg, msgObj.type);
 });
 
 socket.on("user connected", function (obj) {
@@ -124,9 +158,16 @@ socket.on("all users online", function (data) {
 });
 
 // Helper functions
-function insertMessage(msg, prefix = "") {
+function insertMessage(msg, type = "geral") {
   const item = document.createElement("li");
-  item.innerHTML = `${prefix}${msg}`;
+  item.innerHTML = msg;
+
+  if (type === "error") {
+    item.style.backgroundColor = "#f53022";
+  } else if (type === "particular") {
+    item.style.backgroundColor = "#8fc1ff";
+  }
+
   messages.appendChild(item);
   main.scrollTo(0, main.scrollHeight);
 }
@@ -195,6 +236,10 @@ function insertUserInOnlineList(usernameToInsert) {
   const item = document.createElement("li");
   item.id = `onlineList-${usernameToInsert}`;
   item.innerText = usernameToInsert;
+  item.onclick = () => {
+    input.value = `/w ${usernameToInsert} `;
+    input.focus();
+  };
 
   if (usernameToInsert === username) {
     item.innerText += " (Você)";
@@ -210,7 +255,7 @@ function removeUserFromOnlineList(usernameToRemove) {
     return;
   }
 
-  typingUsers.splice(userIndex, 1);
+  onlineUsers.splice(userIndex, 1);
 
   document.getElementById(`onlineList-${usernameToRemove}`)?.remove();
 }

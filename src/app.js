@@ -64,9 +64,9 @@ io.on("connection", (socket) => {
       logger.log("NOTICE starts with /w");
 
       // regex for "/w stringDeExemplo Uma frase de exemplo"
-      const regex = /^\/w\s(\w+)\s(.+)/;
+      const regexMatch = msg.match(/^\/w\s(\w+)\s(.+)/);
 
-      if (!regex.test(msg)) {
+      if (!regexMatch) {
         msgObj.username = null;
         msgObj.type = "error";
         msgObj.message = "Comando inválido. Utilize: '/w Username Mensagem'";
@@ -74,7 +74,6 @@ io.on("connection", (socket) => {
         return;
       }
 
-      const regexMatch = msg.match(regex);
       const usernameBeingWhispered = regexMatch[1];
       const msgString = regexMatch[2];
 

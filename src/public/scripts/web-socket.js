@@ -163,7 +163,7 @@ socket.on("all users online", function (data) {
 // Helper functions
 function insertMessage(msg, type = "geral") {
   const item = document.createElement("li");
-  item.innerHTML = msg;
+  item.innerText = msg;
 
   if (type === "error") {
     item.style.backgroundColor = "#f53022";

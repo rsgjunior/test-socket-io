@@ -1,60 +1,58 @@
 class EventEmitter {
+  #events = new Map();
+
   constructor() {
-    this._events = {};
+    console.log(this.constructor.name);
   }
 
-  on(eventName, closure) {
-    if (typeof eventName !== "string") {
-      throw new TypeError("eventName deve ser uma string");
+  on(eventKey, listener) {
+    if (typeof listener !== "function") {
+      throw new TypeError("callback deve ser uma function");
     }
 
-    if (typeof closure !== "function") {
-      throw new TypeError("closure deve ser uma function");
+    let listeners = this.#events.get(eventKey);
+
+    if (!listeners) {
+      this.#events.set(eventKey, (listeners = []));
     }
 
-    if (!this._events[eventName]) {
-      this._events[eventName] = [];
-    }
-
-    this._events[eventName].push(closure);
+    listeners.push(listener);
 
     return this;
   }
 
-  emit(eventName, data) {
-    if (typeof eventName !== "string") {
-      throw new TypeError("eventName deve ser uma string");
+  emit(eventKey, ...args) {
+    const listeners = this.#events.get(eventKey);
+
+    if (!listeners) {
+      return this;
     }
 
-    if (!this._events[eventName]) {
-      throw new Error(`evento ${eventName} não cadastrado`);
-    }
-
-    for (const closure of this._events[eventName]) {
-      closure(data);
+    for (const listener of listeners) {
+      listener.apply(null, args);
     }
 
     return this;
   }
 
-  removeListener(eventName, closureToRemove) {
-    if (!this._events[eventName]) {
-      throw new Error(`evento ${eventName} não cadastrado`);
+  removeListener(eventKey, listener) {
+    let listeners = this.#events.get(eventKey);
+
+    if (!listeners) {
+      return this;
     }
 
-    this._events[eventName] = this._events[eventName].filter(
-      (closure) => closure !== closureToRemove
-    );
+    listeners = listeners.filter((e) => e !== listener);
 
     return this;
   }
 
-  removeAllListeners(eventName) {
-    if (!this._events[eventName]) {
-      throw new Error(`evento ${eventName} não cadastrado`);
+  removeAllListeners(eventKey) {
+    if (!this.#events.get(eventKey)) {
+      return this;
     }
 
-    this._events[eventName] = undefined;
+    this.#events.delete(eventKey);
 
     return this;
   }

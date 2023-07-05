@@ -56,7 +56,7 @@ io.on("connection", (socket) => {
       message: msg,
       username: socket.handshake.query.username,
       timestamp: Date.now(),
-      type: "geral",
+      type: "common",
     };
 
     // whisper
@@ -100,7 +100,7 @@ io.on("connection", (socket) => {
 
       msgObj.destinatary = usernameBeingWhispered;
       msgObj.message = msgString;
-      msgObj.type = "particular";
+      msgObj.type = "private";
 
       socket.emit("chat message", msgObj);
       socketBeingWhispered.emit("chat message", msgObj);

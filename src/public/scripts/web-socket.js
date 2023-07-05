@@ -1,263 +1,136 @@
 console.log("web socket script loaded");
 
-let username = null;
-while (!username?.length) {
-  username = prompt("Insira seu nome de usuário no chat:");
+let tmpUsername = null;
+while (!tmpUsername?.length) {
+  tmpUsername = prompt("Insira seu nome de usuário no chat:")?.replace(
+    /[^a-zA-Z0-9]/g,
+    ""
+  );
 }
+
+const chatState = new ChatState({
+  clientUsername: tmpUsername,
+});
 
 const socket = io(window.location.host, {
   query: {
-    username: username,
+    username: chatState.clientUsername,
   },
 });
 
-const main = document.getElementById("main");
-const messages = document.getElementById("messages");
-const form = document.getElementById("form");
-const input = document.getElementById("input");
-const usersOnlineUl = document.getElementById("usersOnline");
-const typingUsersSpan = document.querySelector("#typingUsers");
-
-const typingUsers = [];
-let ultimaMsgEnviada = null;
-let onlineUsers = [];
-let intervalDigitacao = null;
-let digitando = false;
-const eventEmitter = new EventEmitter();
-
-// custom event emitter
-eventEmitter.on("user typing", (data) => {
-  console.log("event user typing", data);
-
-  if (data === username) {
-    if (digitando) {
-      return;
-    }
-
-    digitando = true;
-    socket.emit("user typing", data);
-    return;
-  }
-
-  insertUsernameInTypingUsers(data);
+const chatDOM = new ChatDOM({
+  clientUsername: chatState.clientUsername,
 });
 
-eventEmitter.on("user stopped typing", (data) => {
-  if (data === username) {
-    clearInterval(intervalDigitacao);
-    intervalDigitacao = null;
-    digitando = false;
-    socket.emit("user stopped typing", username);
+chatDOM.queryHtmlElements();
+
+// chatState event emitter
+chatState.on("user typing", (username) => {
+  if (username !== chatState.clientUsername) {
+    chatState.usersTyping.add(username);
+    chatDOM.updateUsersTyping(chatState.getUsersTypingAsArray());
     return;
   }
 
-  removeUsernameOfTypingUsers(data);
+  if (chatState.clientIsTyping) {
+    return;
+  }
+
+  chatState.setClientTypingState(1500, () => {
+    chatState.emit("user stopped typing", chatState.clientUsername);
+  });
+
+  socket.emit("user typing", chatState.clientUsername);
+});
+
+chatState.on("user stopped typing", (username) => {
+  if (username === chatState.clientUsername) {
+    chatState.clearClientTypingState();
+    socket.emit("user stopped typing", chatState.clientUsername);
+  } else {
+    chatState.usersTyping.delete(username);
+  }
+
+  chatDOM.updateUsersTyping(chatState.getUsersTypingAsArray());
 });
 
 // DOM event listeners
-form.addEventListener("submit", function (e) {
+chatDOM.htmlElementForm.addEventListener("submit", function (e) {
   e.preventDefault();
-  if (!input.value) {
+
+  const currentMessage = chatDOM.htmlElementInput.value?.trim();
+
+  if (!currentMessage) {
     return;
   }
-  socket.emit("chat message", input.value);
-  eventEmitter.emit("user stopped typing", username);
 
-  ultimaMsgEnviada = input.value;
+  socket.emit("chat message", currentMessage);
+  chatState.emit("user stopped typing", chatState.clientUsername);
+
+  chatState.lastMessageSentByClient = currentMessage;
 
   // regex for "/w stringDeExemplo Uma frase de exemplo"
-  const regexMatch = input.value.match(/^(\/w\s\w+\s).+/);
+  const regexMatch = currentMessage.match(/^(\/w\s\w+\s).+/);
 
   if (regexMatch) {
-    input.value = regexMatch[1];
+    chatDOM.htmlElementInput.value = regexMatch[1];
     return;
   }
 
-  input.value = "";
+  chatDOM.htmlElementInput.value = "";
 });
 
-input.addEventListener("keydown", function (e) {
-  if (e.key === "ArrowUp" && ultimaMsgEnviada) {
-    input.value = ultimaMsgEnviada;
+chatDOM.htmlElementInput.addEventListener("keydown", function (e) {
+  if (e.key === "ArrowUp" && chatState.lastMessageSentByClient) {
+    chatDOM.htmlElementInput.value = chatState.lastMessageSentByClient;
   }
 });
 
-input.addEventListener("keypress", function (e) {
-  console.log("keypress", e);
-
-  eventEmitter.emit("user typing", username);
-
-  if (intervalDigitacao === null) {
-    intervalDigitacao = setInterval(() => {
-      console.log("checando se esta digitando");
-
-      if (!digitando) {
-        console.log("usuario não está digitando");
-        eventEmitter.emit("user stopped typing", username);
-        return;
-      }
-
-      console.log("usuario esta digitando");
-      digitando = false;
-    }, 1500);
-  }
+chatDOM.htmlElementInput.addEventListener("keypress", function (e) {
+  chatState.emit("user typing", chatState.clientUsername);
 });
 
 // Socket event listeners
 socket.on("chat message", function (msgObj) {
-  const date = formatDate(msgObj.timestamp);
-
-  let msg = `[${date}] `;
-
-  if (msgObj.type === "particular") {
-    if (msgObj.destinatary === username) {
-      msg += `<b>${msgObj.username}</b> sussurrou para você: `;
-    } else {
-      msg += `Você sussurrou para <b>${msgObj.destinatary}</b>: `;
-    }
-  } else if (msgObj.type === "geral" && msgObj.username) {
-    msg += `<b>${msgObj.username}</b>: `;
-  }
-
-  msg += msgObj.message;
-
-  insertMessage(msg, msgObj.type);
+  chatDOM.insertMessage(msgObj);
 });
 
 socket.on("user connected", function (obj) {
-  const date = formatDate(obj.timestamp);
-  const usernameString = obj.username === username ? "Você" : obj.username;
+  chatState.usersOnline.add(obj.username);
 
-  insertMessage(`[${date}] <b>${usernameString}</b> entrou no chat!`);
+  const isTheOwnClient = obj.username === chatState.clientUsername;
 
-  if (obj.username !== username) {
-    insertUserInOnlineList(obj.username);
+  if (!isTheOwnClient) {
+    chatDOM.insertUserInOnlineList(obj.username);
   }
+
+  obj.type = "serverEvent";
+  obj.message = `${isTheOwnClient ? "Você" : obj.username} entrou no chat!`;
+
+  chatDOM.insertMessage(obj);
 });
 
 socket.on("user disconnected", function (obj) {
-  const date = formatDate(obj.timestamp);
-  const usernameString = obj.username === username ? "Você" : obj.username;
+  chatState.usersOnline.delete(obj.username);
 
-  insertMessage(`[${date}] <b>${usernameString}</b> saiu do chat.`);
+  const isTheOwnClient = obj.username === chatState.clientUsername;
+  obj.type = "serverEvent";
+  obj.message = `${isTheOwnClient ? "Você" : obj.username} saiu do chat :(`;
 
-  removeUserFromOnlineList(obj.username);
+  chatDOM.removeUserFromOnlineList(obj.username).insertMessage(obj);
 });
 
 socket.on("user typing", function (usernameFromServer) {
-  eventEmitter.emit("user typing", usernameFromServer);
+  chatState.emit("user typing", usernameFromServer);
 });
 
 socket.on("user stopped typing", function (usernameFromServer) {
-  console.log("user stopped typing", usernameFromServer);
-
-  eventEmitter.emit("user stopped typing", usernameFromServer);
+  chatState.emit("user stopped typing", usernameFromServer);
 });
 
 socket.on("all users online", function (data) {
   console.log("all users online", data);
-  updateAllUsersOnlineOnDom(data || []);
+  chatDOM.updateUsersOnlineList(
+    chatState.setUsersOnlineFromArray(data).getUsersOnlineAsArray()
+  );
 });
-
-// Helper functions
-function insertMessage(msg, type = "geral") {
-  const item = document.createElement("li");
-  item.innerText = msg;
-
-  if (type === "error") {
-    item.style.backgroundColor = "#f53022";
-  } else if (type === "particular") {
-    item.style.backgroundColor = "#8fc1ff";
-  }
-
-  messages.appendChild(item);
-  main.scrollTo(0, main.scrollHeight);
-}
-
-function updateTypingUsersOnDom() {
-  const usersString = typingUsers.join(", ");
-
-  if (!typingUsers.length) {
-    typingUsersSpan.innerHTML = "";
-    return;
-  }
-
-  typingUsersSpan.innerHTML =
-    typingUsers.length > 1
-      ? `<b>${usersString}</b> estão digitando...`
-      : `<b>${usersString}</b> está digitando...`;
-}
-
-function insertUsernameInTypingUsers(usernameToInsert) {
-  if (typingUsers.includes(usernameToInsert)) {
-    return;
-  }
-
-  if (usernameToInsert === username) {
-    return;
-  }
-
-  typingUsers.push(usernameToInsert);
-
-  updateTypingUsersOnDom();
-}
-
-function removeUsernameOfTypingUsers(usernameToRemove) {
-  const userIndex = typingUsers.findIndex((u) => u === usernameToRemove);
-
-  if (userIndex === -1) {
-    return;
-  }
-
-  typingUsers.splice(userIndex, 1);
-
-  updateTypingUsersOnDom();
-}
-
-function formatDate(dateArg) {
-  return new Date(dateArg).toLocaleString("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    dateStyle: "short",
-    timeStyle: "short",
-  });
-}
-
-function updateAllUsersOnlineOnDom(users) {
-  for (const user of users) {
-    insertUserInOnlineList(user);
-  }
-}
-
-function insertUserInOnlineList(usernameToInsert) {
-  if (onlineUsers.includes(usernameToInsert)) {
-    return;
-  }
-
-  onlineUsers.push(usernameToInsert);
-
-  const item = document.createElement("li");
-  item.id = `onlineList-${usernameToInsert}`;
-  item.innerText = usernameToInsert;
-  item.onclick = () => {
-    input.value = `/w ${usernameToInsert} `;
-    input.focus();
-  };
-
-  if (usernameToInsert === username) {
-    item.innerText += " (Você)";
-  }
-
-  usersOnlineUl.appendChild(item);
-}
-
-function removeUserFromOnlineList(usernameToRemove) {
-  const userIndex = onlineUsers.findIndex((u) => u === usernameToRemove);
-
-  if (userIndex === -1) {
-    return;
-  }
-
-  onlineUsers.splice(userIndex, 1);
-
-  document.getElementById(`onlineList-${usernameToRemove}`)?.remove();
-}

@@ -18,6 +18,10 @@ const socket = io(window.location.host, {
   },
 });
 
+const notificationAudio = new Audio(
+  `${window.location.href}audio/msgNotification.mp3`
+);
+
 const chatDOM = new ChatDOM({
   clientUsername: chatState.clientUsername,
 });
@@ -93,6 +97,10 @@ chatDOM.htmlElementInput.addEventListener("keypress", function (e) {
 // Socket event listeners
 socket.on("chat message", function (msgObj) {
   chatDOM.insertMessage(msgObj);
+
+  if (msgObj.username && msgObj.username !== chatState.clientUsername) {
+    notificationAudio.play();
+  }
 });
 
 socket.on("user connected", function (obj) {

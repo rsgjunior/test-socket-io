@@ -12,14 +12,15 @@ const chatState = new ChatState({
   clientUsername: tmpUsername,
 });
 
-const socket = io(window.location.host, {
+const namespace = window.location.pathname.split("/").at(-1);
+const socket = io(`/${namespace}`, {
   query: {
     username: chatState.clientUsername,
   },
 });
 
 const notificationAudio = new Audio(
-  `${window.location.href}audio/msgNotification.mp3`
+  `${window.location.origin}/public/audio/msgNotification.mp3`
 );
 
 const chatDOM = new ChatDOM({

@@ -16,21 +16,35 @@ const server = http.createServer(app);
 
 const io = new SocketIoServer(server);
 
-app.use("/web", express.static(path.join(__dirname, "public")));
+app.use("/public", express.static(path.join(__dirname, "public")));
 
 app.get("/", (req, res) => {
-  res.redirect("/web");
+  logger.log(` ${req.ip} ${req.method} ${req.originalUrl}`);
+  res.sendFile(path.join(__dirname, "pages", "index.html"));
 });
 
-io.on("connection", (socket) => {
-  logger.log(`user "${socket.handshake.query.username}" connected`);
+app.get("/chat/:roomID", (req, res) => {
+  logger.log(` ${req.ip} ${req.method} ${req.originalUrl}`);
+  res.sendFile(path.join(__dirname, "pages", "chat.html"));
+});
 
-  io.emit("user connected", {
+io.of((name, auth, next) => {
+  console.log(name);
+  logger.log(`namespace of ${name}`);
+  next(null, true);
+}).on("connection", (socket) => {
+  const namespace = socket.nsp;
+
+  logger.log(
+    `user "${socket.handshake.query.username}" connected on namespace ${namespace.name}`
+  );
+
+  namespace.emit("user connected", {
     username: socket.handshake.query.username,
     timestamp: Date.now(),
   });
 
-  io.fetchSockets().then((data) => {
+  namespace.fetchSockets().then((data) => {
     socket.emit(
       "all users online",
       data.map((e) => e.handshake.query.username)
@@ -40,8 +54,8 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     logger.log(`user ${socket.handshake.query.username} disconnected`);
 
-    io.emit("user stopped typing", socket.handshake.query.username);
-    io.emit("user disconnected", {
+    namespace.emit("user stopped typing", socket.handshake.query.username);
+    namespace.emit("user disconnected", {
       username: socket.handshake.query.username,
       timestamp: Date.now(),
     });
@@ -107,7 +121,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    io.emit("chat message", msgObj);
+    namespace.emit("chat message", msgObj);
   });
 
   socket.on("user typing", (data) => {

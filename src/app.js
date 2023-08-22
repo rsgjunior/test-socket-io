@@ -91,6 +91,10 @@ io.of((name, auth, next) => {
       const usernameBeingWhispered = regexMatch[1];
       const msgString = regexMatch[2];
 
+      logger.log(
+        `usernameBeingWhispered: ${usernameBeingWhispered} msg ${msgString}`
+      );
+
       if (usernameBeingWhispered === socket.handshake.query.username) {
         msgObj.username = null;
         msgObj.type = "error";
@@ -99,7 +103,7 @@ io.of((name, auth, next) => {
         return;
       }
 
-      const allSockets = await io.fetchSockets();
+      const allSockets = await namespace.fetchSockets();
       const socketBeingWhispered = allSockets.find(
         (s) => s.handshake.query.username === usernameBeingWhispered
       );

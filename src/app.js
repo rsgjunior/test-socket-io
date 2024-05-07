@@ -147,3 +147,4 @@ io.of((name, auth, next) => {
 server.listen(port, () => {
   logger.log(`Server running on port ${port}`);
 });
+
